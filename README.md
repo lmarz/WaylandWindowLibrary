@@ -9,5 +9,7 @@ Simple window library for wayland with control over each pixel
 ```
 make
 ```
+## Best Practices
+Only use draw(), when the content or the size of the window has changed. See [test](test.c) for more details.
 ## LICENSE
-This projectis licensed under the MIT license. See [LICENSE](LICENSE) for more details.
+This project is licensed under the MIT license. See [LICENSE](LICENSE) for more details.

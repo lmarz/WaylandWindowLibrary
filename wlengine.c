@@ -9,6 +9,16 @@
 #include <time.h>
 #include <sys/mman.h>
 
+/**
+ * ==================================
+ * Shared memory section
+ * ==================================
+ */
+
+/**
+ * Create a pseudo random name for the shared memory file
+ * @buf: The name template
+ */
 static void randname(char *buf) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -19,6 +29,10 @@ static void randname(char *buf) {
     }
 }
 
+/**
+ * Create a shared memory file in /dev/shm
+ * @size: The size of the file
+ */
 int create_shm_file(int size) {
     char name[] = "/wlengine-XXXXXX";
     int retries = 100;
@@ -43,6 +57,15 @@ int create_shm_file(int size) {
     return fd;
 }
 
+/**
+ * ==================================
+ * Buffer Section
+ * ==================================
+ */
+
+/**
+ * Delete a buffer, when it's not in use anymore
+ */
 void release_buffer(void *data, struct wl_buffer *wl_buffer) {
     wl_buffer_destroy(wl_buffer);
 }
@@ -51,6 +74,12 @@ struct wl_buffer_listener buffer_listener = {
     release_buffer
 };
 
+/**
+ * Create a buffer and fill it with content
+ * @window: The window object
+ * @content: The content of the buffer. When NULL, the function creates a black
+ * buffer
+ */
 struct wl_buffer* createFrame(window* window, uint32_t* content) {
     int stride = window->width * 4;
     int size = stride * window->height;
@@ -83,6 +112,15 @@ struct wl_buffer* createFrame(window* window, uint32_t* content) {
     return buffer;
 }
 
+/**
+ * ==================================
+ * Listener Section
+ * ==================================
+ */
+
+/**
+ * Get the global objects
+ */
 void global_listener(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
     window* window = data;
     if(strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -103,6 +141,10 @@ struct wl_registry_listener listener = {
     global_remove
 };
 
+/**
+ * Honestly. I don't really know what's up with this function. I have to have it
+ * and I have to create and attach a buffer, even if I don't want to.
+ */
 void surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
     window* window = data;
     xdg_surface_ack_configure(xdg_surface, serial);
@@ -115,6 +157,9 @@ struct xdg_surface_listener surface_listener = {
     surface_configure
 };
 
+/**
+ * Gets called when the size of the window changes
+ */
 void toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states) {
     window* window = data;
     if(width != 0 && height != 0) {
@@ -123,6 +168,9 @@ void toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t w
     }
 }
 
+/**
+ * Gets called when the window should be closed
+ */
 void toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel) {
     window* window = data;
     window->running = 0;
@@ -133,6 +181,11 @@ struct xdg_toplevel_listener toplevel_listener = {
     toplevel_close
 };
 
+/**
+ * ==================================
+ * API Section
+ * ==================================
+ */
 window* createWindow(int width, int height, const char* title) {
     window* window = malloc(sizeof(struct window));
     window->width = width;
@@ -167,6 +220,10 @@ void getDimensions(window* window, int* width, int* height) {
     *height = window->height;
 }
 
+/**
+ * When the compositor is ready, this function is called. It attaches the new
+ * buffer to the surface with content from the draw() call
+ */
 void callback_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data) {
     window* window = data;
     
