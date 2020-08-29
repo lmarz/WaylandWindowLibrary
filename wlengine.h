@@ -1,20 +1,9 @@
-#include <wayland-client.h>
-#include "xdg-shell.h"
+#ifndef WLENGINE_H
+#define WLENIGNE_H
 
-typedef struct window {
-    struct wl_display* display;
-    struct wl_compositor* compositor;
-    struct wl_shm* shm;
-    struct xdg_wm_base* wm_base;
-    struct wl_surface* surface;
-    struct xdg_toplevel* toplevel;
+#include <inttypes.h>
 
-    int width;
-    int height;
-    int running;
-
-    uint32_t* content;
-} window;
+typedef void wlengineWindow;
 
 /**
  * Creates and returns a window
@@ -22,13 +11,13 @@ typedef struct window {
  * @height: The height of the window
  * @title: The title of the window
  */
-window* createWindow(int width, int height, const char* title);
+wlengineWindow* wlengineCreateWindow(int width, int height, const char* title);
 
 /**
  * Returns true, when the window should be closed
  * @window: The window object
  */
-int windowShouldClose(window* window);
+int wlengineShouldClose(wlengineWindow* window);
 
 /**
  * Gets the current width and height of the window
@@ -36,7 +25,7 @@ int windowShouldClose(window* window);
  * @width: A pointer, where the width will be written
  * @height: A pointer, where the height will be written
  */
-void getDimensions(window* window, int* width, int* height);
+void wlengineGetDimensions(wlengineWindow* window, int* width, int* height);
 
 /**
  * Draws the content to the screen
@@ -45,17 +34,19 @@ void getDimensions(window* window, int* width, int* height);
  * XRGB
  * @size: The size of the content array. This should be width * height * 4
  */
-int draw(window* window, uint32_t* content, int size);
+int wlengineDraw(wlengineWindow* window, uint32_t* content, int size);
 
 /**
  * Sets the title of the window
  * @window: The window object
  * @title: The new title
  */
-void setTitle(window* window, const char* title);
+void wlengineSetTitle(wlengineWindow* window, const char* title);
 
 /**
  * Closes the window
  * @window: The window object
  */
-void closeWindow(window* window);
+void wlengineCloseWindow(wlengineWindow* window);
+
+#endif /* WLENGINE_H */

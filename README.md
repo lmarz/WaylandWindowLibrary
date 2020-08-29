@@ -2,7 +2,7 @@
 Simple window library for wayland with control over each pixel
 ## Requirements
 - Running wayland server
-- wayland-client
+- wayland development files
 - wayland-protocols
 - wayland-scanner
 ## Compiling

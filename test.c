@@ -2,18 +2,30 @@
 #include "wlengine.h"
 
 int main(int argc, char const *argv[]) {
-    window* window = createWindow(800, 600, "Test");
+    /* Create a window */
+    wlengineWindow* window = wlengineCreateWindow(800, 600, "Test");
+
+    /* Get the current size of the window. This is important for tiling WMs like
+    sway */
     int width, height;
-    getDimensions(window, &width, &height);
+    wlengineGetDimensions(window, &width, &height);
+
+    /* Create the content of the window and make all pixels white */
     uint32_t* content = malloc(width * height * sizeof(uint32_t));
     for(int i = 0; i < width * height; i++) {
         content[i] = 0xFFFFFFFF;
     }
-    draw(window, content, width * height * sizeof(uint32_t));
-    while(!windowShouldClose(window)) {
+
+    /* Draw the initial content */
+    wlengineDraw(window, content, width * height * sizeof(uint32_t));
+
+    /* Main loop */
+    while(!wlengineShouldClose(window)) {
+        /* Check if the window has been resized */
         int newWidth, newHeight;
-        getDimensions(window, &newWidth, &newHeight);
+        wlengineGetDimensions(window, &newWidth, &newHeight);
         if(newWidth != width || newHeight != height) {
+            /* Recreate the content with the new size */
             width = newWidth;
             height = newHeight;
             free(content);
@@ -21,9 +33,11 @@ int main(int argc, char const *argv[]) {
             for(int i = 0; i < width * height; i++) {
                 content[i] = 0xFFFFFFFF;
             }
-            draw(window, content, width * height * sizeof(uint32_t));
+            wlengineDraw(window, content, width * height * sizeof(uint32_t));
         }
     }
-    closeWindow(window);
+
+    /* Destroy the window after the close request */
+    wlengineCloseWindow(window);
     return 0;
 }

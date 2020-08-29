@@ -1,0 +1,4 @@
+libwlengine.so
+test
+*.o
+xdg-shell.*
