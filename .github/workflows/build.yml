@@ -1,0 +1,22 @@
+name: Build Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Dependencies
+      run: sudo apt update && sudo apt install libwayland-dev wayland-protocols
+    - name: make
+      run: make
+    - name: Prepare Artifact
+      run: mkdir include lib && cp wwl.h include && cp libwwl.so lib
+    - uses: actions/upload-artifact@v2
+      with:
+        name: wwl
+        path: |
+          include
+          lib
+          LICENSE
