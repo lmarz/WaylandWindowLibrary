@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "wlengine.h"
+#include "wwl.h"
 
 int main(int argc, char const *argv[]) {
     /* Create a window */

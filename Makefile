@@ -6,13 +6,13 @@ WAYLAND_SCANNER = $(shell pkg-config --variable=wayland_scanner wayland-scanner)
 XDG_SHELL_PROTOCOL = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 CFLAGS ?= -Wall -Wextra -Wno-unused-parameter -fPIC -flto -O2
 
-all: xdg-shell.h libwlengine.so check
+all: xdg-shell.h libwwl.so check
 
-libwlengine.so: wlengine.o xdg-shell.o
-	$(CC) $(CFLAGS) -shared -o libwlengine.so wlengine.o xdg-shell.o $(WAYLAND_FLAGS) -lrt
+libwwl.so: wwl.o xdg-shell.o
+	$(CC) $(CFLAGS) -shared -o libwwl.so wwl.o xdg-shell.o $(WAYLAND_FLAGS) -lrt
 
-wlengine.o: wlengine.c
-	$(CC) $(CFLAGS) -c wlengine.c
+wwl.o: wwl.c
+	$(CC) $(CFLAGS) -c wwl.c
 
 xdg-shell.o: xdg-shell.c
 	$(CC) $(CFLAGS) -c xdg-shell.c
@@ -26,22 +26,22 @@ xdg-shell.c: $(XDG_SHELL_PROTOCOL)
 check: test
 	./test
 
-test: test.c libwlengine.so
-	$(CC) $(CFLAGS) -o test test.c -L. -lwlengine
+test: test.c libwwl.so
+	$(CC) $(CFLAGS) -o test test.c -L. -lwwl
 
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)/include
 	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp wlengine.h $(DESTDIR)$(PREFIX)/include
-	cp libwlengine.so $(DESTDIR)$(PREFIX)/lib
-	ln -s $(DESTDIR)$(PREFIX)/lib/wlengine.so.0 $(DESTDIR)$(PREFIX)/lib/wlengine.so
+	cp wwl.h $(DESTDIR)$(PREFIX)/include
+	cp libwwl.so $(DESTDIR)$(PREFIX)/lib
+	ln -s $(DESTDIR)$(PREFIX)/lib/libwwl.so.0 $(DESTDIR)$(PREFIX)/lib/libwwl.so
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/include/wlengine.h
-	rm -f $(DESTDIR)$(PREFIX)/lib/wlengine.so.0
-	rm -f $(DESTDIR)$(PREFIX)/lib/wlengine.so
+	rm -f $(DESTDIR)$(PREFIX)/include/wwl.h
+	rm -f $(DESTDIR)$(PREFIX)/lib/libwwl.so.0
+	rm -f $(DESTDIR)$(PREFIX)/lib/libwwl.so
 	rmdir --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/include
 	rmdir --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/lib
 
 clean:
-	$(RM) -f test libwlengine.so *.o xdg-shell.*
+	$(RM) -f test libwwl.so *.o xdg-shell.*

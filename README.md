@@ -1,4 +1,4 @@
-# WLENGINE
+# Wayland Window Library
 Simple window library for wayland with control over each pixel
 ## Requirements
 - Running wayland server
