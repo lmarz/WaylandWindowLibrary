@@ -16,6 +16,7 @@ typedef struct wlengineWindow {
     struct xdg_wm_base* wm_base;
     struct wl_surface* surface;
     struct xdg_toplevel* toplevel;
+    struct wl_seat* seat;
 
     int width;
     int height;
@@ -144,6 +145,8 @@ static void global_listener(void *data, struct wl_registry *wl_registry, uint32_
         window->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
     } else if(strcmp(interface, xdg_wm_base_interface.name) == 0) {
         window->wm_base = wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, version);
+    } else if(strcmp(interface, wl_seat_interface.name) == 0) {
+        window->seat = wl_registry_bind(wl_registry, name, &wl_seat_interface, version);
     }
 }
 

@@ -6,7 +6,7 @@ WAYLAND_SCANNER = $(shell pkg-config --variable=wayland_scanner wayland-scanner)
 XDG_SHELL_PROTOCOL = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 CFLAGS ?= -Wall -Wextra -Wno-unused-parameter -fPIC -flto -O2
 
-all: xdg-shell.h libwwl.so check
+all: xdg-shell.h libwwl.so
 
 libwwl.so: wwl.o xdg-shell.o
 	$(CC) $(CFLAGS) -shared -o libwwl.so wwl.o xdg-shell.o $(WAYLAND_FLAGS) -lrt
