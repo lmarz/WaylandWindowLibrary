@@ -9,7 +9,7 @@
 #include <wayland-client.h>
 #include "xdg-shell.h"
 
-typedef struct wlengineWindow {
+typedef struct wwlWindow {
     struct wl_display* display;
     struct wl_compositor* compositor;
     struct wl_shm* shm;
@@ -21,9 +21,11 @@ typedef struct wlengineWindow {
     int width;
     int height;
     int running;
+    int damaged;
 
     uint32_t* content;
-} wlengineWindow;
+    struct wl_buffer* buffer;
+} wwlWindow;
 
 /**
  * ==================================
@@ -50,7 +52,7 @@ static void randname(char *buf) {
  * @size: The size of the file
  */
 static int create_shm_file(int size) {
-    char name[] = "/wlengine-XXXXXX";
+    char name[] = "/wwl-XXXXXX";
     int retries = 100;
     int fd = -1;
 
@@ -96,7 +98,7 @@ static struct wl_buffer_listener buffer_listener = {
  * @content: The content of the buffer. When NULL, the function creates a black
  * buffer
  */
-static struct wl_buffer* createFrame(wlengineWindow* window, uint32_t* content) {
+static struct wl_buffer* createFrame(wwlWindow* window, uint32_t* content) {
     int stride = window->width * 4;
     int size = stride * window->height;
     int fd = create_shm_file(size);
@@ -138,7 +140,7 @@ static struct wl_buffer* createFrame(wlengineWindow* window, uint32_t* content) 
  * Get the global objects
  */
 static void global_listener(void *data, struct wl_registry *wl_registry, uint32_t name, const char *interface, uint32_t version) {
-    wlengineWindow* window = data;
+    wwlWindow* window = data;
     if(strcmp(interface, wl_compositor_interface.name) == 0) {
         window->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, version);
     } else if(strcmp(interface, wl_shm_interface.name) == 0) {
@@ -164,10 +166,10 @@ static struct wl_registry_listener listener = {
  * and I have to create and attach a buffer, even if I don't want to.
  */
 static void surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial) {
-    wlengineWindow* window = data;
+    wwlWindow* window = data;
     xdg_surface_ack_configure(xdg_surface, serial);
-    struct wl_buffer* buffer = createFrame(window, window->content);
-    wl_surface_attach(window->surface, buffer, 0, 0);
+    window->buffer = createFrame(window, window->content);
+    wl_surface_attach(window->surface, window->buffer, 0, 0);
     wl_surface_commit(window->surface);
 }
 
@@ -179,7 +181,7 @@ static struct xdg_surface_listener surface_listener = {
  * Gets called when the size of the window changes
  */
 static void toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states) {
-    wlengineWindow* window = data;
+    wwlWindow* window = data;
     if(width != 0 && height != 0) {
         window->width = width;
         window->height = height;
@@ -190,7 +192,7 @@ static void toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, in
  * Gets called when the window should be closed
  */
 static void toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel) {
-    wlengineWindow* window = data;
+    wwlWindow* window = data;
     window->running = 0;
 }
 
@@ -199,13 +201,35 @@ static struct xdg_toplevel_listener toplevel_listener = {
     toplevel_close
 };
 
+static struct wl_callback_listener frame_listener;
+
+static void frame_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data) {
+    wwlWindow* window = data;
+    
+    wl_callback_destroy(wl_callback);
+    wl_callback = wl_surface_frame(window->surface);
+    wl_callback_add_listener(wl_callback, &frame_listener, window);
+
+    if(window->damaged) {
+        window->buffer = createFrame(window, window->content);
+        wl_surface_attach(window->surface, window->buffer, 0, 0);
+        wl_surface_damage_buffer(window->surface, 0, 0, UINT32_MAX, UINT32_MAX);
+        wl_surface_commit(window->surface);
+        window->damaged = 0;
+    }
+}
+
+static struct wl_callback_listener frame_listener = {
+    frame_done
+};
+
 /**
  * ==================================
  * API Section
  * ==================================
  */
-wlengineWindow* wlengineCreateWindow(int width, int height, const char* title) {
-    wlengineWindow* window = malloc(sizeof(wlengineWindow));
+wwlWindow* wwlCreateWindow(int width, int height, const char* title) {
+    wwlWindow* window = malloc(sizeof(wwlWindow));
     window->width = width;
     window->height = height;
     window->running = 1;
@@ -215,9 +239,11 @@ wlengineWindow* wlengineCreateWindow(int width, int height, const char* title) {
         fprintf(stderr, "Couldn't find wayland display\n");
         return NULL;
     }
+
     struct wl_registry* registry = wl_display_get_registry(window->display);
     wl_registry_add_listener(registry, &listener, window);
     wl_display_roundtrip(window->display);
+
     window->surface = wl_compositor_create_surface(window->compositor);
     struct xdg_surface* xdg_surface = xdg_wm_base_get_xdg_surface(window->wm_base, window->surface);
     window->toplevel = xdg_surface_get_toplevel(xdg_surface);
@@ -226,53 +252,37 @@ wlengineWindow* wlengineCreateWindow(int width, int height, const char* title) {
     xdg_toplevel_set_title(window->toplevel, title);
     wl_surface_commit(window->surface);
 
+    struct wl_callback* cb = wl_surface_frame(window->surface);
+    wl_callback_add_listener(cb, &frame_listener, window);
+
     return window;
 }
 
-int wlengineShouldClose(wlengineWindow* window) {
+int wwlShouldClose(wwlWindow* window) {
     return wl_display_dispatch(window->display) == -1 || !window->running;
 }
 
-void wlengineGetDimensions(wlengineWindow* window, int* width, int* height) {
+void wwlGetDimensions(wwlWindow* window, int* width, int* height) {
     *width = window->width;
     *height = window->height;
 }
 
-/**
- * When the compositor is ready, this function is called. It attaches the new
- * buffer to the surface with content from the draw() call
- */
-static void callback_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data) {
-    wlengineWindow* window = data;
-    
-    wl_callback_destroy(wl_callback);
-    struct wl_buffer* buffer = createFrame(window, window->content);
-    wl_surface_attach(window->surface, buffer, 0, 0);
-    wl_surface_damage_buffer(window->surface, 0, 0, UINT32_MAX, UINT32_MAX);
-    wl_surface_commit(window->surface);
-}
-
-static struct wl_callback_listener callback_listener = {
-    callback_done
-};
-
-int wlengineDraw(wlengineWindow* window, uint32_t* content, int size) {
+int wwlDraw(wwlWindow* window, uint32_t* content, int size) {
     if(window->width * window->height * 4 != size) {
         fprintf(stderr, "Size doesn't match\n");
         return -1;
     }
     window->content = content;
-    struct wl_callback* cb = wl_surface_frame(window->surface);
-    wl_callback_add_listener(cb, &callback_listener, window);
+    window->damaged = 1;
     return 0;
 }
 
-void wlengineSetTitle(wlengineWindow* window, const char* title) {
+void wwlSetTitle(wwlWindow* window, const char* title) {
     xdg_toplevel_set_title(window->toplevel, title);
     wl_surface_commit(window->surface);
 }
 
-void wlengineCloseWindow(wlengineWindow* window) {
+void wwlCloseWindow(wwlWindow* window) {
     window->running = 0;
     xdg_toplevel_destroy(window->toplevel);
     wl_surface_destroy(window->surface);

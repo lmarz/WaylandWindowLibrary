@@ -23,12 +23,12 @@
  * 
  */
 
-#ifndef WLENGINE_H
-#define WLENIGNE_H
+#ifndef WWL_H
+#define WWL_H
 
 #include <inttypes.h>
 
-typedef void wlengineWindow;
+typedef void wwlWindow;
 
 /**
  * Creates and returns a window
@@ -36,13 +36,13 @@ typedef void wlengineWindow;
  * @height: The height of the window
  * @title: The title of the window
  */
-wlengineWindow* wlengineCreateWindow(int width, int height, const char* title);
+wwlWindow* wwlCreateWindow(int width, int height, const char* title);
 
 /**
  * Returns true, when the window should be closed
  * @window: The window object
  */
-int wlengineShouldClose(wlengineWindow* window);
+int wwlShouldClose(wwlWindow* window);
 
 /**
  * Gets the current width and height of the window
@@ -50,7 +50,7 @@ int wlengineShouldClose(wlengineWindow* window);
  * @width: A pointer, where the width will be written
  * @height: A pointer, where the height will be written
  */
-void wlengineGetDimensions(wlengineWindow* window, int* width, int* height);
+void wwlGetDimensions(wwlWindow* window, int* width, int* height);
 
 /**
  * Draws the content to the screen
@@ -59,7 +59,7 @@ void wlengineGetDimensions(wlengineWindow* window, int* width, int* height);
  * XRGB
  * @size: The size of the content array. This should be width * height * 4
  */
-int wlengineDraw(wlengineWindow* window, uint32_t* content, int size);
+int wwlDraw(wwlWindow* window, uint32_t* content, int size);
 
 /**
  * Redraw only a specific region on screen
@@ -71,19 +71,19 @@ int wlengineDraw(wlengineWindow* window, uint32_t* content, int size);
  * @width: The width of the region
  * @height: The height of the region
  */
-int wlengineDrawRegion(wlengineWindow* window, uint32_t* content, int x, int y, int width, int height);
+int wwlDrawRegion(wwlWindow* window, uint32_t* content, int x, int y, int width, int height);
 
 /**
  * Sets the title of the window
  * @window: The window object
  * @title: The new title
  */
-void wlengineSetTitle(wlengineWindow* window, const char* title);
+void wwlSetTitle(wwlWindow* window, const char* title);
 
 /**
  * Closes the window
  * @window: The window object
  */
-void wlengineCloseWindow(wlengineWindow* window);
+void wwlCloseWindow(wwlWindow* window);
 
-#endif /* WLENGINE_H */
+#endif /* WWL_H */
