@@ -8,7 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Dependencies
-      run: sudo apt update && sudo apt install libwayland-dev wayland-protocols
+      run: sudo apt update && sudo apt install libwayland-dev wayland-protocols libxkbcommon-dev
     - name: make
       run: make
     - name: Prepare Artifact
