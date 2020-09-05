@@ -1,9 +1,21 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include "wwl.h"
+
+void key_callback(wwlWindow* window, char* key, enum wwlKeyAction action) {
+    /* The keys a modifier sensitive. This means Shift_L and a have been pressed */
+    if(strcmp(key, "A") == 0 && action == WWL_KEY_PRESSED) {
+        printf("'A' was pressed\n");
+    }
+}
 
 int main(int argc, char const *argv[]) {
     /* Create a window */
     wwlWindow* window = wwlCreateWindow(800, 600, "Test");
+
+    /* Set the key callback function */
+    wwlSetKeyCallback(window, key_callback);
 
     /* Get the current size of the window. This is important for tiling WMs like
     sway */

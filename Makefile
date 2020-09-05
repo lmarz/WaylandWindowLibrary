@@ -9,7 +9,7 @@ CFLAGS ?= -Wall -Wextra -Wno-unused-parameter -fPIC -flto -O2
 all: xdg-shell.h libwwl.so
 
 libwwl.so: wwl.o xdg-shell.o
-	$(CC) $(CFLAGS) -shared -o libwwl.so wwl.o xdg-shell.o $(WAYLAND_FLAGS) -lrt
+	$(CC) $(CFLAGS) -shared -o libwwl.so wwl.o xdg-shell.o $(WAYLAND_FLAGS) -lrt -lxkbcommon
 
 wwl.o: wwl.c
 	$(CC) $(CFLAGS) -c wwl.c

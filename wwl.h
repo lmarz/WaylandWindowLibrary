@@ -80,6 +80,18 @@ int wwlDrawRegion(wwlWindow* window, uint32_t* content, int x, int y, int width,
  */
 void wwlSetTitle(wwlWindow* window, const char* title);
 
+enum wwlKeyAction {
+    WWL_KEY_PRESSED,
+    WWL_KEY_RELEASED
+};
+
+/**
+ * Sets the callback for when a key is pressed or released
+ * @window: The window object
+ * @key_callback: The callback function, which takes the window object, the utf8 name of the key and the action (either pressed or released)
+ */
+void wwlSetKeyCallback(wwlWindow* window, void (*key_callback)(wwlWindow* window, char* key, enum wwlKeyAction action));
+
 /**
  * Closes the window
  * @window: The window object

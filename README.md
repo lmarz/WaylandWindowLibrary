@@ -5,6 +5,7 @@ Simple window library for wayland with control over each pixel
 - wayland development files
 - wayland-protocols
 - wayland-scanner
+- xkbcommon development files
 ## Compiling
 ```
 make

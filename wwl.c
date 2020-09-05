@@ -6,8 +6,14 @@
 #include <string.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <xkbcommon/xkbcommon.h>
 #include <wayland-client.h>
 #include "xdg-shell.h"
+
+enum wwlKeyAction {
+    WWL_KEY_PRESSED,
+    WWL_KEY_RELEASED
+};
 
 typedef struct wwlWindow {
     struct wl_display* display;
@@ -17,6 +23,10 @@ typedef struct wwlWindow {
     struct wl_surface* surface;
     struct xdg_toplevel* toplevel;
     struct wl_seat* seat;
+    struct wl_keyboard* keyboard;
+    struct xkb_state* keyboard_state;
+    struct xkb_context* keyboard_context;
+    struct xkb_keymap* keyboard_keymap;
 
     int width;
     int height;
@@ -25,6 +35,8 @@ typedef struct wwlWindow {
 
     uint32_t* content;
     struct wl_buffer* buffer;
+
+    void (*key_callback)(void* window, char* key, enum wwlKeyAction action);
 } wwlWindow;
 
 /**
@@ -136,6 +148,94 @@ static struct wl_buffer* createFrame(wwlWindow* window, uint32_t* content) {
  * ==================================
  */
 
+static void keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size) {
+    wwlWindow* window = data;
+    
+    if(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+        char* map_shm = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+        if(map_shm != MAP_FAILED) {
+            xkb_keymap_unref(window->keyboard_keymap);
+            xkb_state_unref(window->keyboard_state);
+            window->keyboard_keymap = xkb_keymap_new_from_string(window->keyboard_context, map_shm, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_MAP_COMPILE_NO_FLAGS);
+            munmap(map_shm, size);
+            close(fd);
+            window->keyboard_state = xkb_state_new(window->keyboard_keymap);
+        }
+    }
+}
+
+static void keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
+    wwlWindow* window = data;
+
+    if(window->key_callback != NULL) {
+        uint32_t* key;
+        wl_array_for_each(key, keys) {
+            char buf[128];
+            xkb_keysym_t sym = xkb_state_key_get_one_sym(window->keyboard_state, *key+8);
+            xkb_keysym_get_name(sym, buf, sizeof(buf));
+            xkb_state_key_get_utf8(window->keyboard_state, *key+8, buf, sizeof(buf));
+            window->key_callback(window, buf, WWL_KEY_PRESSED);
+        }
+    }
+}
+
+static void keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
+
+}
+
+static void keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
+    wwlWindow* window = data;
+
+    if(window->key_callback != NULL) {
+        char buf[128];
+        uint32_t keycode = key+8;
+        xkb_keysym_t sym = xkb_state_key_get_one_sym(window->keyboard_state, keycode);
+        xkb_keysym_get_name(sym, buf, sizeof(buf));
+        enum wwlKeyAction action = state == WL_KEYBOARD_KEY_STATE_PRESSED ? WWL_KEY_PRESSED : WWL_KEY_RELEASED;
+        xkb_state_key_get_utf8(window->keyboard_state, keycode, buf, sizeof(buf));
+        window->key_callback(window, buf, action);
+    }
+}
+
+static void keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group) {
+    wwlWindow* window = data;
+    xkb_state_update_mask(window->keyboard_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+}
+
+void keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay) {
+
+}
+
+static struct wl_keyboard_listener keyboard_listener = {
+    keyboard_keymap,
+    keyboard_enter,
+    keyboard_leave,
+    keyboard_key,
+    keyboard_modifiers,
+    keyboard_repeat_info
+};
+
+static void seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
+    wwlWindow* window = data;
+
+    if(window->keyboard == NULL) {
+        window->keyboard = wl_seat_get_keyboard(wl_seat);
+        wl_keyboard_add_listener(window->keyboard, &keyboard_listener, window);
+    } else {
+        wl_keyboard_release(window->keyboard);
+        window->keyboard = NULL;
+    }
+}
+
+static void seat_name(void *data, struct wl_seat *wl_seat, const char *name) {
+
+}
+
+static struct wl_seat_listener seat_listener = {
+    seat_capabilities,
+    seat_name
+};
+
 /**
  * Get the global objects
  */
@@ -149,6 +249,7 @@ static void global_listener(void *data, struct wl_registry *wl_registry, uint32_
         window->wm_base = wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, version);
     } else if(strcmp(interface, wl_seat_interface.name) == 0) {
         window->seat = wl_registry_bind(wl_registry, name, &wl_seat_interface, version);
+        wl_seat_add_listener(window->seat, &seat_listener, window);
     }
 }
 
@@ -255,6 +356,8 @@ wwlWindow* wwlCreateWindow(int width, int height, const char* title) {
     struct wl_callback* cb = wl_surface_frame(window->surface);
     wl_callback_add_listener(cb, &frame_listener, window);
 
+    window->keyboard_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+
     return window;
 }
 
@@ -280,6 +383,10 @@ int wwlDraw(wwlWindow* window, uint32_t* content, int size) {
 void wwlSetTitle(wwlWindow* window, const char* title) {
     xdg_toplevel_set_title(window->toplevel, title);
     wl_surface_commit(window->surface);
+}
+
+void wwlSetKeyCallback(wwlWindow* window, void (*key_callback)(void* window, char* key, enum wwlKeyAction action)) {
+    window->key_callback = key_callback;
 }
 
 void wwlCloseWindow(wwlWindow* window) {
