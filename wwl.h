@@ -88,9 +88,38 @@ enum wwlKeyAction {
 /**
  * Sets the callback for when a key is pressed or released
  * @window: The window object
- * @key_callback: The callback function, which takes the window object, the utf8 name of the key and the action (either pressed or released)
+ * @key_callback: The callback function, which takes the window object, the name of the key and the action (either pressed or released)
  */
 void wwlSetKeyCallback(wwlWindow* window, void (*key_callback)(wwlWindow* window, char* key, enum wwlKeyAction action));
+
+/**
+ * Gets the current position of the cursor in the window
+ * @window: The window object
+ * @x: The x position of the cursor
+ * @y: The y position of the cursor
+ */
+void wwlGetCursorPos(wwlWindow* window, double* x, double* y);
+
+/**
+ * Sets the callback for when the cursor gets moved in the window
+ * @window: The window object
+ * @cursor_callback: The callback function, which takes the window object, the x coordinate in the window of the cursor and the y coordinate in the window of the cursor
+ */
+void wwlSetCursorCallback(wwlWindow* window, void (*cursor_callback)(wwlWindow* window, double x, double y));
+
+/**
+ * Sets the callback for when a button on the mouse gets pressed or released
+ * @window: The window object
+ * @button_callback: The callback function, which takes the window object, the name of the button and the action (either pressed or released)
+ */
+void wwlSetMouseButtonCallback(wwlWindow* window, void (*button_callback)(wwlWindow* window, int button, enum wwlKeyAction action));
+
+/**
+ * Sets the callback for when the scrolling happens
+ * @window: The window object
+ * @scroll_callback: The callback function, which takes the window object, the vertical offset and the horizontal offset
+ */
+void wwlSetScrollCallback(wwlWindow* window, void (*scroll_callback)(wwlWindow* window, double x_offset, double y_offset));
 
 /**
  * Closes the window

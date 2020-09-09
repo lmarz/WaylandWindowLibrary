@@ -15,6 +15,31 @@ enum wwlKeyAction {
     WWL_KEY_RELEASED
 };
 
+enum pointer_event_mask {
+       POINTER_EVENT_ENTER = 1 << 0,
+       POINTER_EVENT_LEAVE = 1 << 1,
+       POINTER_EVENT_MOTION = 1 << 2,
+       POINTER_EVENT_BUTTON = 1 << 3,
+       POINTER_EVENT_AXIS = 1 << 4,
+       POINTER_EVENT_AXIS_SOURCE = 1 << 5,
+       POINTER_EVENT_AXIS_STOP = 1 << 6,
+       POINTER_EVENT_AXIS_DISCRETE = 1 << 7,
+};
+
+struct pointer_event {
+       uint32_t event_mask;
+       wl_fixed_t surface_x, surface_y;
+       uint32_t button, state;
+       uint32_t time;
+       uint32_t serial;
+       struct {
+               int valid;
+               wl_fixed_t value;
+               int32_t discrete;
+       } axes[2];
+       uint32_t axis_source;
+};
+
 typedef struct wwlWindow {
     struct wl_display* display;
     struct wl_compositor* compositor;
@@ -24,6 +49,7 @@ typedef struct wwlWindow {
     struct xdg_toplevel* toplevel;
     struct wl_seat* seat;
     struct wl_keyboard* keyboard;
+    struct wl_pointer* pointer;
     struct xkb_state* keyboard_state;
     struct xkb_context* keyboard_context;
     struct xkb_keymap* keyboard_keymap;
@@ -37,6 +63,12 @@ typedef struct wwlWindow {
     struct wl_buffer* buffer;
 
     void (*key_callback)(void* window, char* key, enum wwlKeyAction action);
+    void (*cursor_callback)(void* window, double x, double y);
+    void (*button_callback)(void* window, int button, enum wwlKeyAction action);
+    void (*scroll_callback)(void* window, double x_offset, double y_offset);
+    struct pointer_event pointer_event;
+    double cursor_x;
+    double cursor_y;
 } wwlWindow;
 
 /**
@@ -173,7 +205,6 @@ static void keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t
             char buf[128];
             xkb_keysym_t sym = xkb_state_key_get_one_sym(window->keyboard_state, *key+8);
             xkb_keysym_get_name(sym, buf, sizeof(buf));
-            xkb_state_key_get_utf8(window->keyboard_state, *key+8, buf, sizeof(buf));
             window->key_callback(window, buf, WWL_KEY_PRESSED);
         }
     }
@@ -192,7 +223,6 @@ static void keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t s
         xkb_keysym_t sym = xkb_state_key_get_one_sym(window->keyboard_state, keycode);
         xkb_keysym_get_name(sym, buf, sizeof(buf));
         enum wwlKeyAction action = state == WL_KEYBOARD_KEY_STATE_PRESSED ? WWL_KEY_PRESSED : WWL_KEY_RELEASED;
-        xkb_state_key_get_utf8(window->keyboard_state, keycode, buf, sizeof(buf));
         window->key_callback(window, buf, action);
     }
 }
@@ -215,15 +245,128 @@ static struct wl_keyboard_listener keyboard_listener = {
     keyboard_repeat_info
 };
 
+static void pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_ENTER;
+    window->pointer_event.serial = serial;
+    window->pointer_event.surface_x = surface_x;
+    window->pointer_event.surface_y = surface_y;
+}
+
+static void pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_LEAVE;
+    window->pointer_event.serial = serial;
+}
+
+static void pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_MOTION;
+    window->pointer_event.time = time;
+    window->pointer_event.surface_x = surface_x;
+    window->pointer_event.surface_y = surface_y;
+}
+
+static void pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_BUTTON;
+    window->pointer_event.time = time;
+    window->pointer_event.serial = serial;
+    window->pointer_event.button = button;
+    window->pointer_event.state = state;
+}
+
+static void pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_AXIS;
+    window->pointer_event.time = time;
+    window->pointer_event.axes[axis].valid = 1;
+    window->pointer_event.axes[axis].value = value;
+}
+
+static void pointer_frame(void *data, struct wl_pointer *wl_pointer) {
+    wwlWindow* window = data;
+    struct pointer_event* event = &window->pointer_event;
+
+    if(event->event_mask & POINTER_EVENT_ENTER) {
+        window->cursor_x = wl_fixed_to_double(event->surface_x);
+        window->cursor_y = wl_fixed_to_double(event->surface_y);
+        if(window->cursor_callback != NULL) {
+            window->cursor_callback(window, window->cursor_x, window->cursor_y);
+        }
+    }
+    if(event->event_mask & POINTER_EVENT_LEAVE) {
+        
+    }
+    if(event->event_mask & POINTER_EVENT_MOTION) {
+        window->cursor_x = wl_fixed_to_double(event->surface_x);
+        window->cursor_y = wl_fixed_to_double(event->surface_y);
+        if(window->cursor_callback != NULL) {
+            window->cursor_callback(window, window->cursor_x, window->cursor_y);
+        }
+    }
+    if(event->event_mask & POINTER_EVENT_BUTTON) {
+        enum wwlKeyAction action = event->state == WL_POINTER_BUTTON_STATE_PRESSED ? WWL_KEY_PRESSED : WWL_KEY_RELEASED;
+        if(window->button_callback != NULL) {
+            window->button_callback(window, event->button, action);
+        }
+    }
+
+    uint32_t axis_events = POINTER_EVENT_AXIS
+            | POINTER_EVENT_AXIS_SOURCE
+            | POINTER_EVENT_AXIS_STOP
+            | POINTER_EVENT_AXIS_DISCRETE;
+    if (event->event_mask & axis_events) {
+        if(window->scroll_callback != NULL) {
+            window->scroll_callback(window, event->axes[WL_POINTER_AXIS_VERTICAL_SCROLL].value, event->axes[WL_POINTER_AXIS_HORIZONTAL_SCROLL].value);
+        }
+    }
+    memset(event, 0, sizeof(*event));
+}
+
+static void pointer_axis_source(void *data, struct wl_pointer *wl_pointer, uint32_t axis_source) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_AXIS_SOURCE;
+    window->pointer_event.axis_source = axis_source;
+}
+
+static void pointer_axis_stop(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_AXIS_STOP;
+    window->pointer_event.time = time;
+    window->pointer_event.axes[axis].valid = 1;
+}
+
+static void pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer, uint32_t axis, int32_t discrete) {
+    wwlWindow* window = data;
+    window->pointer_event.event_mask |= POINTER_EVENT_AXIS_DISCRETE;
+    window->pointer_event.axes[axis].valid = 1;
+    window->pointer_event.axes[axis].discrete = discrete;
+}
+
+static struct wl_pointer_listener pointer_listener = {
+    pointer_enter,
+    pointer_leave,
+    pointer_motion,
+    pointer_button,
+    pointer_axis,
+    pointer_frame,
+    pointer_axis_source,
+    pointer_axis_stop,
+    pointer_axis_discrete
+};
+
 static void seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
     wwlWindow* window = data;
 
     if(window->keyboard == NULL) {
         window->keyboard = wl_seat_get_keyboard(wl_seat);
         wl_keyboard_add_listener(window->keyboard, &keyboard_listener, window);
-    } else {
-        wl_keyboard_release(window->keyboard);
-        window->keyboard = NULL;
+    }
+
+    if(window->pointer == NULL) {
+        window->pointer = wl_seat_get_pointer(wl_seat);
+        wl_pointer_add_listener(window->pointer, &pointer_listener, window);
     }
 }
 
@@ -387,6 +530,23 @@ void wwlSetTitle(wwlWindow* window, const char* title) {
 
 void wwlSetKeyCallback(wwlWindow* window, void (*key_callback)(void* window, char* key, enum wwlKeyAction action)) {
     window->key_callback = key_callback;
+}
+
+void wwlGetCursorPos(wwlWindow* window, double* x, double* y) {
+    *x = window->cursor_x;
+    *y = window->cursor_y;
+}
+
+void wwlSetCursorCallback(wwlWindow* window, void (*cursor_callback)(void* window, double x, double y)) {
+    window->cursor_callback = cursor_callback;
+}
+
+void wwlSetMouseButtonCallback(wwlWindow* window, void (*button_callback)(void* window, int button, enum wwlKeyAction action)) {
+    window->button_callback = button_callback;
+}
+
+void wwlSetScrollCallback(wwlWindow* window, void (*scroll_callback)(void* window, double x_offset, double y_offset)) {
+    window->scroll_callback = scroll_callback;
 }
 
 void wwlCloseWindow(wwlWindow* window) {
