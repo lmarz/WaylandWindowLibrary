@@ -2,10 +2,9 @@
 Simple window library for wayland with control over each pixel
 ## Requirements
 - Running wayland server
-- wayland development files
-- wayland-protocols
-- wayland-scanner
-- xkbcommon development files
+- [wayland development files](https://gitlab.freedesktop.org/wayland/wayland)
+- [wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols)
+- [xkbcommon development files](https://github.com/xkbcommon/libxkbcommon)
 ## Compiling
 ```
 make
